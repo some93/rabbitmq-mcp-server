@@ -33,10 +33,34 @@ def _expand_env_vars(value: str) -> str:
     return re.sub(r"\$\{(\w+)\}", lambda m: os.getenv(m.group(1), ""), value)
 
 
+def _find_config() -> Path | None:
+    """按优先级查找 config.yaml
+
+    1. 环境变量 RMQ_CONFIG_PATH 指定的路径
+    2. 当前工作目录 ./config.yaml
+    3. 项目根目录（源码开发时使用）
+    """
+    # 优先级 1: 环境变量显式指定
+    env_path = os.getenv("RMQ_CONFIG_PATH")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+    # 优先级 2: 当前工作目录
+    cwd_path = Path.cwd() / "config.yaml"
+    if cwd_path.exists():
+        return cwd_path
+    # 优先级 3: 源码项目根目录（开发模式）
+    pkg_path = Path(__file__).parent.parent.parent / "config.yaml"
+    if pkg_path.exists():
+        return pkg_path
+    return None
+
+
 def load_clusters() -> Dict[str, ClusterConfig]:
     """从 config.yaml 加载所有集群配置，密码字段支持环境变量展开"""
-    config_path = Path(__file__).parent.parent.parent / "config.yaml"
-    if not config_path.exists():
+    config_path = _find_config()
+    if config_path is None:
         return {}
     with open(config_path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
