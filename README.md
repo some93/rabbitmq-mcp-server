@@ -25,11 +25,13 @@ clusters:
     url: "http://localhost:15672"
     user: "guest"
     password: "guest"
+    vhost: "/"
     verify_ssl: false
   prod:
     url: "https://mq.internal:15672"
     user: "ai_reader"
     password: "${PROD_RMQ_PASS}"  # 支持环境变量
+    vhost: "myapp"
     verify_ssl: true
 ```
 
