@@ -26,11 +26,11 @@ def main():
     parser.add_argument(
         "--transport",
         choices=["stdio", "http", "sse"],
-        default=os.getenv("RMQ_MCP_TRANSPORT", "stdio"),
+        default=os.getenv("RABBITMQ_MCP_TRANSPORT", "stdio"),
         help="传输模式 (默认: stdio)",
     )
-    parser.add_argument("--host", default=os.getenv("RMQ_MCP_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("RMQ_MCP_PORT", "9000")))
+    parser.add_argument("--host", default=os.getenv("RABBITMQ_MCP_HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.getenv("RABBITMQ_MCP_PORT", "9000")))
     args = parser.parse_args()
 
     logger.info(f"Starting RabbitMQ MCP Server (transport={args.transport})")

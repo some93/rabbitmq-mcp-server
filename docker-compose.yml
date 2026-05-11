@@ -4,9 +4,9 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     environment:
-      - RMQ_MCP_TRANSPORT=http
-      - RMQ_MCP_HOST=0.0.0.0
-      - RMQ_MCP_PORT=9000
+      - RABBITMQ_MCP_TRANSPORT=http
+      - RABBITMQ_MCP_HOST=0.0.0.0
+      - RABBITMQ_MCP_PORT=9000
     ports:
       - "9000:9000"
     stdin_open: true
