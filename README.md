@@ -88,7 +88,10 @@ Claude Desktop / Cursor 配置（`claude_desktop_config.json`）：
     "RabbitMQ": {
       "command": "python",
       "args": ["-m", "rabbitmq_mcp_server.server"],
-      "cwd": "/path/to/rabbitmq-mcp-server/src"
+      "cwd": "/path/to/rabbitmq-mcp-server/src",
+      "env": {
+        "RMQ_CONFIG_PATH": "/path/to/rabbitmq-mcp-server/config.yaml"
+      }
     }
   }
 }
