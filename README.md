@@ -37,7 +37,7 @@ clusters:
 
 环境变量：
 - `RMQ_CONFIG_PATH` - 配置文件路径（不设则按优先级查找：环境变量 > 当前目录 > 项目根目录）
-- `RMQ_DEFAULT_CLUSTER` - 默认集群别名 (默认: dev)
+- `RABBITMQ_DEFAULT_CLUSTER` - 默认集群别名 (默认: dev)
 - `RMQ_MCP_TRANSPORT` - 传输模式: stdio / http / sse
 - `RABBITMQ_API_TIMEOUT` - API 超时 (默认: 15s)
 

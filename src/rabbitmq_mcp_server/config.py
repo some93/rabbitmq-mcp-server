@@ -22,7 +22,7 @@ class ClusterConfig(BaseSettings):
 class AppConfig(BaseSettings):
     """应用全局配置，优先从环境变量读取 (前缀: RABBITMQ_)"""
 
-    default_cluster: str = "dev"  # 默认使用的集群别名
+    default_cluster: str = "dev"  # 环境变量: RABBITMQ_DEFAULT_CLUSTER
     api_timeout: int = 15  # Management API 请求超时（秒）
     max_payload: int = 10240  # 消息体最大返回长度（字节）
     model_config = {"env_prefix": "RABBITMQ_"}
