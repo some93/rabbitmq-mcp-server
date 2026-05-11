@@ -3,9 +3,23 @@
 from urllib.parse import quote
 
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from .config import AppConfig, ClusterConfig
+
+
+def _should_retry(exc: BaseException) -> bool:
+    """仅对服务端错误（5xx）和连接/超时异常重试，客户端错误（4xx）不重试"""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    if isinstance(exc, (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError)):
+        return True
+    return False
 
 
 class RMQApiClient:
@@ -25,9 +39,18 @@ class RMQApiClient:
         self.max_payload = app_cfg.max_payload  # 消息截断长度
         self._client = httpx.AsyncClient(verify=self.verify, timeout=self.timeout)
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        retry=retry_if_exception(_should_retry),
+        reraise=True,
+    )
     async def request(self, method: str, path: str, **kwargs):
-        """发送 HTTP 请求，失败时自动重试（最多 3 次，指数退避 1~5 秒）"""
+        """发送 HTTP 请求，失败时自动重试（最多 3 次，指数退避 1~5 秒）
+
+        仅对 5xx 服务端错误和连接/超时异常重试，4xx 客户端错误直接抛出。
+        reraise=True 确保最终抛出原始异常而非 tenacity.RetryError。
+        """
         resp = await self._client.request(
             method, f"{self.base_url}{path}", auth=self.auth, **kwargs
         )
@@ -175,7 +198,7 @@ class RMQApiClient:
             "properties": {"headers": headers or {}},
             "routing_key": routing_key,
             "payload": payload,
-            "payload_encoding": "auto",
+            "payload_encoding": "string",
         }
         return await self.request(
             "POST",
