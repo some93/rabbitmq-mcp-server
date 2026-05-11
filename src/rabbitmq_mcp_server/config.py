@@ -15,6 +15,7 @@ class ClusterConfig(BaseSettings):
     url: str  # RabbitMQ Management API 地址，如 http://localhost:15672
     user: str  # 管理用户名
     password: str  # 管理密码，支持 ${ENV_VAR} 语法
+    vhost: str = "/"  # 默认虚拟主机，连接时绑定，所有操作默认使用此 vhost
     verify_ssl: bool = True  # 是否校验 SSL 证书
 
 

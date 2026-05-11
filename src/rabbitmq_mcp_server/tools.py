@@ -1,4 +1,7 @@
-"""MCP 工具定义模块：注册所有 RabbitMQ 调试工具到 FastMCP 服务"""
+"""MCP 工具定义模块：注册所有 RabbitMQ 调试工具到 FastMCP 服务
+
+vhost 在集群配置中指定，创建客户端时自动绑定，工具层面无需重复传入。
+"""
 
 from typing import Annotated, Dict, List
 
@@ -53,7 +56,6 @@ async def rmq_cluster_overview(
         client = get_client(cluster_profile)
         overview = await client.get_overview()
         nodes = await client.get_nodes()
-        # 整理节点摘要信息
         node_summary = []
         for n in nodes:
             node_summary.append({
@@ -103,16 +105,16 @@ async def rmq_list_vhosts(
 
 @mcp.tool()
 async def rmq_list_queues(
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     pattern: Annotated[str | None, Field(description="队列名称正则过滤")] = None,
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> List[Dict]:
-    """列出 VHost 下所有队列及消息统计
+    """列出当前 vhost 下所有队列及消息统计
 
     返回每个队列的消息总数、待消费数、未确认数、消费者数、所在节点和状态。
+    vhost 由集群配置决定。
     """
     try:
-        data = await get_client(cluster_profile).get_queues(vhost, pattern)
+        data = await get_client(cluster_profile).get_queues(pattern)
         return [
             {
                 "name": q["name"],
@@ -133,24 +135,22 @@ async def rmq_list_queues(
 @mcp.tool()
 async def rmq_queue_detail(
     queue: Annotated[str, Field(description="队列名称")],
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> Dict:
     """获取单个队列完整详情：消费者列表、策略、参数、消息速率等"""
     try:
-        return await get_client(cluster_profile).get_queue_detail(vhost, queue)
+        return await get_client(cluster_profile).get_queue_detail(queue)
     except Exception as e:
         return {"error": str(e)}
 
 
 @mcp.tool()
 async def rmq_list_exchanges(
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> List[Dict]:
-    """列出 VHost 下所有交换机（类型、持久化、自动删除、参数）"""
+    """列出当前 vhost 下所有交换机（类型、持久化、自动删除、参数）"""
     try:
-        data = await get_client(cluster_profile).get_exchanges(vhost)
+        data = await get_client(cluster_profile).get_exchanges()
         return [
             {
                 "name": e["name"],
@@ -167,26 +167,24 @@ async def rmq_list_exchanges(
 
 @mcp.tool()
 async def rmq_list_bindings(
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     source: Annotated[str | None, Field(description="Source Exchange")] = None,
     destination: Annotated[str | None, Field(description="Queue/Exchange 名称")] = None,
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> List[Dict]:
     """列出绑定关系，可按源交换机或目标队列/交换机过滤"""
     try:
-        return await get_client(cluster_profile).get_bindings(vhost, source, destination)
+        return await get_client(cluster_profile).get_bindings(source, destination)
     except Exception as e:
         return [{"error": f"获取绑定失败: {e}"}]
 
 
 @mcp.tool()
 async def rmq_list_consumers(
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> List[Dict]:
-    """列出 VHost 下所有消费者（队列、Channel、连接、ACK 模式、预取数）"""
+    """列出当前 vhost 下所有消费者（队列、Channel、连接、ACK 模式、预取数）"""
     try:
-        data = await get_client(cluster_profile).get_consumers(vhost)
+        data = await get_client(cluster_profile).get_consumers()
         return [
             {
                 "queue": c.get("queue", {}).get("name"),
@@ -230,7 +228,6 @@ async def rmq_list_connections(
 @mcp.tool()
 async def rmq_peek_messages(
     queue: Annotated[str, Field(description="队列名称")],
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     count: Annotated[int, Field(description="预览条数", ge=1, le=20)] = 5,
     ackmode: Annotated[str, Field(description="确认模式: ack_requeue_true / ack_requeue_false / reject_requeue_true")] = "ack_requeue_true",
     full_payload: Annotated[bool, Field(description="是否返回完整 Payload")] = False,
@@ -243,8 +240,7 @@ async def rmq_peek_messages(
     """
     try:
         client = get_client(cluster_profile)
-        raw_msgs = await client.peek_messages(vhost, queue, count, ackmode)
-        # full_payload=true 时返回 100 倍长度，否则使用默认限制
+        raw_msgs = await client.peek_messages(queue, count, ackmode)
         max_len = app_cfg.max_payload * 100 if full_payload else app_cfg.max_payload
         return [decode_message(msg, max_len) for msg in raw_msgs]
     except Exception as e:
@@ -256,14 +252,13 @@ async def rmq_publish_message(
     exchange: Annotated[str, Field(description="交换机名称")],
     routing_key: Annotated[str, Field(description="路由键")],
     payload: Annotated[str, Field(description="消息体")],
-    vhost: Annotated[str, Field(description="VHost")] = "/",
     headers: Annotated[Dict, Field(description="自定义 Headers")] = {},
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> Dict:
     """发布消息到指定交换机"""
     try:
         client = get_client(cluster_profile)
-        res = await client.publish_message(vhost, exchange, routing_key, payload, headers)
+        res = await client.publish_message(exchange, routing_key, payload, headers)
         return {"routed": res.get("routed", False), "payload_bytes": len(payload)}
     except Exception as e:
         return {"error": f"发布失败: {e}"}
@@ -276,16 +271,15 @@ async def rmq_publish_message(
 
 @mcp.tool()
 async def rmq_list_policies(
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> List[Dict]:
-    """列出 VHost 下所有策略（TTL、DLX、HA 模式、最大长度等）
+    """列出当前 vhost 下所有策略（TTL、DLX、HA 模式、最大长度等）
 
     策略是 RabbitMQ 的核心配置机制，控制消息存活时间、死信路由、
     镜像队列等行为，对调试问题至关重要。
     """
     try:
-        data = await get_client(cluster_profile).get_policies(vhost)
+        data = await get_client(cluster_profile).get_policies()
         return [
             {
                 "name": p.get("name"),
@@ -325,7 +319,6 @@ async def rmq_list_channels(
 
 @mcp.tool()
 async def rmq_trace_route(
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     exchange: Annotated[str, Field(description="交换机名称")] = "",
     routing_key: Annotated[str, Field(description="路由键")] = "",
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
@@ -376,7 +369,7 @@ async def rmq_trace_route(
             """递归追踪绑定链，depth 限制防止无限循环"""
             if depth > 5:
                 return []
-            bindings = await client.get_bindings(vhost, source=exchange_name)
+            bindings = await client.get_bindings(source=exchange_name)
             targets = []
             for b in bindings:
                 if not _match_routing_key(b.get("routing_key", ""), rk):
@@ -388,7 +381,6 @@ async def rmq_trace_route(
                 if dest_type == "queue":
                     targets.append({"type": "queue", "name": dest})
                 elif dest_type == "exchange":
-                    # 递归追踪 exchange-to-exchange 绑定
                     sub = await _trace(dest, rk, depth + 1)
                     targets.append({"type": "exchange", "name": dest, "routes_to": sub})
             return targets
@@ -407,7 +399,6 @@ async def rmq_trace_route(
 @mcp.tool()
 async def rmq_purge_queue(
     queue: Annotated[str, Field(description="队列名称")],
-    vhost: Annotated[str, Field(description="VHost 名称")] = "/",
     confirm: Annotated[bool, Field(description="确认清空操作")] = False,
     cluster_profile: Annotated[str | None, Field(description="集群别名")] = None,
 ) -> Dict:
@@ -418,7 +409,7 @@ async def rmq_purge_queue(
     if not confirm:
         return {"error": "请设置 confirm=true 以确认清空操作"}
     try:
-        result = await get_client(cluster_profile).purge_queue(vhost, queue)
+        result = await get_client(cluster_profile).purge_queue(queue)
         return {"purged": result.get("message_count", 0)}
     except Exception as e:
         return {"error": f"清空失败: {e}"}

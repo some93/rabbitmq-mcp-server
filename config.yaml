@@ -3,9 +3,11 @@ clusters:
     url: "http://localhost:15672"
     user: "guest"
     password: "guest"
+    vhost: "/"
     verify_ssl: false
   prod:
     url: "https://mq-east.internal:15672"
     user: "ai_debug_reader"
     password: "${PROD_RMQ_PASS}"
+    vhost: "myapp"
     verify_ssl: true
