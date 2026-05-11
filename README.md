@@ -50,13 +50,41 @@ rabbitmq-mcp-server
 python -m rabbitmq_mcp_server.server
 ```
 
-Claude Desktop 配置:
+Claude Desktop / Cursor 配置（`claude_desktop_config.json`）：
+
+**已发布到 PyPI：**
 ```json
 {
   "mcpServers": {
     "RabbitMQ": {
       "command": "uvx",
       "args": ["rabbitmq-mcp-server"]
+    }
+  }
+}
+```
+
+**本地开发（未发布）：**
+```json
+{
+  "mcpServers": {
+    "RabbitMQ": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/rabbitmq-mcp-server", "rabbitmq-mcp-server"]
+    }
+  }
+}
+```
+> 将 `/path/to/rabbitmq-mcp-server` 替换为本项目实际路径。
+
+**或直接用 Python：**
+```json
+{
+  "mcpServers": {
+    "RabbitMQ": {
+      "command": "python",
+      "args": ["-m", "rabbitmq_mcp_server.server"],
+      "cwd": "/path/to/rabbitmq-mcp-server/src"
     }
   }
 }
